@@ -1,3 +1,8 @@
+#include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
+__attribute__((weak)) void cherry_trace_block_rq_issue(const char *dev, uint64_t lba, uint32_t count, int is_write) { (void)dev; (void)lba; (void)count; (void)is_write; }
+__attribute__((weak)) void cherry_trace_block_rq_complete(const char *dev, uint64_t lba, uint32_t count, int status) { (void)dev; (void)lba; (void)count; (void)status; }
 /*
  * CherryVFS - Virtual File System for FreeRTOS
  *
@@ -132,7 +137,9 @@ static ssize_t devfs_bdev_read(struct vfs_file *file, void *buf, size_t count)
         num_blocks = (size_t)(bdev->total_blocks - lba);
     }
 
+    cherry_trace_block_rq_issue(bdev->dev.name, lba, (uint32_t)num_blocks, 0);
     int ret = bdev->ops->read_blocks(bdev, buf, lba, num_blocks);
+    cherry_trace_block_rq_complete(bdev->dev.name, lba, (uint32_t)num_blocks, ret);
     if (ret != 0) {
         return -EIO;
     }
@@ -163,7 +170,9 @@ static ssize_t devfs_bdev_write(struct vfs_file *file, const void *buf, size_t c
         num_blocks = (size_t)(bdev->total_blocks - lba);
     }
 
+    cherry_trace_block_rq_issue(bdev->dev.name, lba, (uint32_t)num_blocks, 1);
     int ret = bdev->ops->write_blocks(bdev, buf, lba, num_blocks);
+    cherry_trace_block_rq_complete(bdev->dev.name, lba, (uint32_t)num_blocks, ret);
     if (ret != 0) {
         return -EIO;
     }
