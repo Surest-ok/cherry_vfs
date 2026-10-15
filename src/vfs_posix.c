@@ -8,6 +8,10 @@
  */
 
 #include "cherry_vfs.h"
+__attribute__((weak)) void cherry_trace_vfs_open(const char *path, int flags, int mode, int fd) { (void)path; (void)flags; (void)mode; (void)fd; }
+__attribute__((weak)) void cherry_trace_vfs_close(int fd, int ret) { (void)fd; (void)ret; }
+__attribute__((weak)) void cherry_trace_vfs_read(int fd, size_t count, ssize_t ret) { (void)fd; (void)count; (void)ret; }
+__attribute__((weak)) void cherry_trace_vfs_write(int fd, size_t count, ssize_t ret) { (void)fd; (void)count; (void)ret; }
 #include <string.h>
 #include <stdarg.h>
 
@@ -106,7 +110,8 @@ int open(const char *path, int flags, ...)
         return fd;
     }
 
-    return fd;
+    cherry_trace_vfs_open(path, flags, 0, fd);
+        return fd;
 }
 
 int close(int fd)
@@ -117,6 +122,7 @@ int close(int fd)
     }
     vfs_file_put(file); /* Decrement get ref */
     vfs_fd_free(fd);     /* Release slot & file ref */
+    cherry_trace_vfs_close(fd, 0);
     return VFS_OK;
 }
 
@@ -140,6 +146,7 @@ ssize_t read(int fd, void *buf, size_t count)
 
     ssize_t ret = file->f_ops->read(file, buf, count);
     vfs_file_put(file);
+    cherry_trace_vfs_read(fd, count, ret);
     return ret;
 }
 
@@ -163,6 +170,7 @@ ssize_t write(int fd, const void *buf, size_t count)
 
     ssize_t ret = file->f_ops->write(file, buf, count);
     vfs_file_put(file);
+    cherry_trace_vfs_write(fd, count, ret);
     return ret;
 }
 
