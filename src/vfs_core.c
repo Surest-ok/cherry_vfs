@@ -375,6 +375,22 @@ struct vfs_filesystem_type *vfs_find_fs(const char *name)
     return NULL;
 }
 
+int vfs_mkfs(const char *fstype, const char *source, const char *label)
+{
+    if (!fstype || !source) return -EINVAL;
+    struct vfs_filesystem_type *fs = vfs_find_fs(fstype);
+    if (!fs || !fs->mkfs) return -ENODEV;
+    return fs->mkfs(source, label);
+}
+
+int vfs_fsck(const char *fstype, const char *source, int repair)
+{
+    if (!fstype || !source) return -EINVAL;
+    struct vfs_filesystem_type *fs = vfs_find_fs(fstype);
+    if (!fs || !fs->fsck) return -ENODEV;
+    return fs->fsck(source, repair);
+}
+
 int vfs_mount(const char *source, const char *target, const char *fstype, unsigned long flags, const void *data)
 {
     if (!target || !fstype) {
@@ -472,7 +488,6 @@ int vfs_fd_alloc(struct vfs_file *file)
     for (int fd = 3; fd < VFS_MAX_FD; fd++) {
         if (g_fd_table[fd] == NULL) {
             g_fd_table[fd] = file;
-            file->f_ref++;
             vfs_unlock();
             return fd;
         }

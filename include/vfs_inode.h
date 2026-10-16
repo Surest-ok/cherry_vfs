@@ -100,6 +100,8 @@ struct vfs_filesystem_type {
     const char *name;
     int (*mount)(struct vfs_superblock *sb, const char *source, unsigned long flags, const void *data);
     int (*unmount)(struct vfs_superblock *sb);
+    int (*mkfs)(const char *source, const char *label);
+    int (*fsck)(const char *source, int repair);
     struct vfs_filesystem_type *next;
 };
 
