@@ -261,11 +261,23 @@ static const struct vfs_file_operations g_devfs_bdev_fops = {
 /* =========================================================================
  * 3. DevFS Directory Operations (lookup, readdir)
  * ========================================================================= */
+static const struct vfs_inode_operations g_devfs_dir_iops;
+static const struct vfs_file_operations g_devfs_dir_fops;
+
 static int devfs_lookup(struct vfs_inode *dir, const char *name, struct vfs_inode **result)
 {
     (void)dir;
     if (!name || !result) {
         return -EINVAL;
+    }
+
+    if (strcmp(name, "dri") == 0) {
+        struct vfs_inode *dri_inode = vfs_inode_alloc(dir->i_sb, S_IFDIR | 0755);
+        if (!dri_inode) return -ENOMEM;
+        dri_inode->i_ops = &g_devfs_dir_iops;
+        dri_inode->i_fops = &g_devfs_dir_fops;
+        *result = dri_inode;
+        return VFS_OK;
     }
 
     struct vfs_device *dev = vfs_device_find(name);
