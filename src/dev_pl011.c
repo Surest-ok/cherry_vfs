@@ -79,13 +79,30 @@ static ssize_t pl011_cdev_write(struct vfs_cdev *cdev, const void *buf, size_t c
     return (ssize_t)count;
 }
 
+static int pl011_cdev_poll(struct vfs_cdev *cdev, void *poll_table)
+{
+    (void)cdev;
+    (void)poll_table;
+    int mask = 0;
+    volatile uint32_t *fr = (volatile uint32_t *)(0x09000000 + 0x18);
+    /* Bit 4: RXFE (Receive FIFO Empty) */
+    if (!(*fr & (1 << 4))) {
+        mask |= POLLIN | POLLRDNORM;
+    }
+    /* Bit 5: TXFF (Transmit FIFO Full) */
+    if (!(*fr & (1 << 5))) {
+        mask |= POLLOUT | POLLWRNORM;
+    }
+    return mask;
+}
+
 static const struct vfs_cdev_ops g_pl011_cdev_ops = {
     .open  = pl011_cdev_open,
     .close = pl011_cdev_close,
     .read  = pl011_cdev_read,
     .write = pl011_cdev_write,
     .ioctl = NULL,
-    .poll  = NULL,
+    .poll  = pl011_cdev_poll,
 };
 
 static struct vfs_cdev g_uart0_cdev = {

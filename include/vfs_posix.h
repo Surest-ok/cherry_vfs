@@ -12,6 +12,7 @@
 
 #include "vfs_types.h"
 #include "vfs_inode.h"
+#include "vfs_poll.h"
 
 #ifdef __cplusplus
 extern "C" {
