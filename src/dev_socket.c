@@ -65,6 +65,18 @@ static ssize_t sock_file_write(struct vfs_file *file, const void *buf, size_t co
     return -ENOSYS;
 }
 
+static int sock_file_poll(struct vfs_file *file, void *poll_table)
+{
+    if (!file || !file->f_inode || !file->f_inode->i_private || !file->f_private) {
+        return -EINVAL;
+    }
+    struct vfs_sockdev *sdev = (struct vfs_sockdev *)file->f_inode->i_private;
+    if (sdev && sdev->ops && sdev->ops->poll) {
+        return sdev->ops->poll(file->f_private, poll_table);
+    }
+    return POLLIN | POLLOUT | POLLRDNORM | POLLWRNORM;
+}
+
 static const struct vfs_file_operations g_sock_file_ops = {
     .open = sock_file_open,
     .close = sock_file_close,
@@ -74,6 +86,7 @@ static const struct vfs_file_operations g_sock_file_ops = {
     .lseek = NULL,
     .readdir = NULL,
     .sync = NULL,
+    .poll = sock_file_poll,
 };
 
 /* =========================================================================
@@ -182,6 +195,24 @@ static int loopback_close(void *sock)
     return VFS_OK;
 }
 
+static int loopback_poll(void *sock, void *poll_table)
+{
+    (void)poll_table;
+    if (!sock) return -EINVAL;
+    struct loopback_socket_ctx *ctx = (struct loopback_socket_ctx *)sock;
+    int mask = 0;
+    if (ctx->data_len > ctx->read_pos || ctx->listening) {
+        mask |= POLLIN | POLLRDNORM;
+    }
+    if (ctx->data_len < LOOPBACK_SOCK_BUF_SIZE) {
+        mask |= POLLOUT | POLLWRNORM;
+    }
+    if (!ctx->connected && !ctx->listening && !ctx->bound) {
+        mask |= POLLHUP;
+    }
+    return mask;
+}
+
 static const struct vfs_sock_ops g_loopback_sock_ops = {
     .socket = loopback_socket,
     .bind = loopback_bind,
@@ -192,6 +223,7 @@ static const struct vfs_sock_ops g_loopback_sock_ops = {
     .recv = loopback_recv,
     .shutdown = loopback_shutdown,
     .close = loopback_close,
+    .poll = loopback_poll,
 };
 
 static struct vfs_sockdev g_loopback_sockdev = {

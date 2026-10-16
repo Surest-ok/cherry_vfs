@@ -33,6 +33,7 @@ vfs_sources = [
     'src/dev_ramdisk.c',
     'src/dev_socket.c',
     'src/dev_pl011.c',
+    'src/vfs_poll.c',
     'src/cherry_vfs.c',
     'tests/vfs_test.c',
     'tests/vfs_stress_test.c',

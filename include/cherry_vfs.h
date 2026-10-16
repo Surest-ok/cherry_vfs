@@ -17,6 +17,7 @@
 #include "vfs_platform.h"
 #include "vfs_core.h"
 #include "vfs_posix.h"
+#include "vfs_poll.h"
 
 #ifdef __cplusplus
 extern "C" {

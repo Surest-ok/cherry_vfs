@@ -227,6 +227,12 @@ struct dirent {
 #ifndef ECONNABORTED
 #define ECONNABORTED    103 /* Software caused connection abort */
 #endif
+#ifndef ECONNREFUSED
+#define ECONNREFUSED    111 /* Connection refused */
+#endif
+#ifndef EHOSTUNREACH
+#define EHOSTUNREACH    113 /* No route to host */
+#endif
 
 
 #ifdef __cplusplus

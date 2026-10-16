@@ -205,6 +205,85 @@ static int test_socket_abstraction(void)
     return 0;
 }
 
+static int test_poll_select_epoll(void)
+{
+    /* 1. Create socket for I/O multiplexing test */
+    int sfd = socket(0, 0, 0);
+    TEST_ASSERT(sfd >= 0, "socket() call for poll test");
+    bind(sfd, NULL, 0);
+
+    /* 2. Test poll() initial state: should be writable (POLLOUT) but not readable */
+    struct pollfd pfd;
+    pfd.fd = sfd;
+    pfd.events = POLLIN | POLLOUT;
+    pfd.revents = 0;
+    int p_ret = poll(&pfd, 1, 0);
+    TEST_ASSERT(p_ret == 1, "poll() returns 1 ready fd");
+    TEST_ASSERT((pfd.revents & POLLOUT) != 0, "socket is POLLOUT ready");
+    TEST_ASSERT((pfd.revents & POLLIN) == 0, "socket is not yet POLLIN ready");
+
+    /* 3. Test select() initial state */
+    fd_set rfds, wfds;
+    FD_ZERO(&rfds);
+    FD_ZERO(&wfds);
+    FD_SET(sfd, &rfds);
+    FD_SET(sfd, &wfds);
+    struct timeval tv = {0, 0};
+    int s_ret = select(sfd + 1, &rfds, &wfds, NULL, &tv);
+    TEST_ASSERT(s_ret == 1, "select() returns 1 ready fd");
+    TEST_ASSERT(!FD_ISSET(sfd, &rfds), "socket not in read set");
+    TEST_ASSERT(FD_ISSET(sfd, &wfds), "socket is in write set");
+
+    /* 4. Test epoll_create1(), epoll_ctl(), epoll_wait() */
+    int epfd = epoll_create1(0);
+    TEST_ASSERT(epfd >= 0, "epoll_create1() success");
+
+    struct epoll_event ev;
+    ev.events = EPOLLIN | EPOLLOUT;
+    ev.data.fd = sfd;
+    int c_ret = epoll_ctl(epfd, EPOLL_CTL_ADD, sfd, &ev);
+    TEST_ASSERT(c_ret == 0, "epoll_ctl ADD success");
+
+    struct epoll_event ev_out[4];
+    int e_ret = epoll_wait(epfd, ev_out, 4, 0);
+    TEST_ASSERT(e_ret == 1, "epoll_wait() returns 1 event");
+    TEST_ASSERT(ev_out[0].data.fd == sfd, "epoll fd matches");
+    TEST_ASSERT((ev_out[0].events & EPOLLOUT) != 0, "epoll event has EPOLLOUT");
+    TEST_ASSERT((ev_out[0].events & EPOLLIN) == 0, "epoll event has no EPOLLIN");
+
+    /* 5. Send data -> now should be both readable and writable */
+    static const char ping[] = "POLL_PING";
+    send(sfd, ping, strlen(ping), 0);
+
+    pfd.revents = 0;
+    poll(&pfd, 1, 0);
+    TEST_ASSERT((pfd.revents & POLLIN) != 0 && (pfd.revents & POLLOUT) != 0,
+                "poll after send has both POLLIN and POLLOUT");
+
+    FD_ZERO(&rfds);
+    FD_ZERO(&wfds);
+    FD_SET(sfd, &rfds);
+    FD_SET(sfd, &wfds);
+    select(sfd + 1, &rfds, &wfds, NULL, &tv);
+    TEST_ASSERT(FD_ISSET(sfd, &rfds) && FD_ISSET(sfd, &wfds),
+                "select after send has both read and write");
+
+    memset(ev_out, 0, sizeof(ev_out));
+    e_ret = epoll_wait(epfd, ev_out, 4, 0);
+    TEST_ASSERT(e_ret == 1, "epoll after send returns 1");
+    TEST_ASSERT((ev_out[0].events & EPOLLIN) != 0 && (ev_out[0].events & EPOLLOUT) != 0,
+                "epoll event has both EPOLLIN and EPOLLOUT");
+
+    /* 6. Read back and cleanup */
+    char rx[16];
+    recv(sfd, rx, sizeof(rx), 0);
+
+    epoll_ctl(epfd, EPOLL_CTL_DEL, sfd, NULL);
+    close(epfd);
+    close(sfd);
+    return 0;
+}
+
 int cherry_vfs_run_tests(void)
 {
     printk("<6>cherry_vfs: ==> starting cherryvfs acceptance test suite...\n");
@@ -215,16 +294,18 @@ int cherry_vfs_run_tests(void)
     int bdev_ok = (test_bdev_ramdisk() == 0);
     int ramfs_ok = (test_ramfs_file_and_dir() == 0);
     int sock_ok = (test_socket_abstraction() == 0);
+    int poll_ok = (test_poll_select_epoll() == 0);
 
     int cdev_ok = (cdev_null_ok && cdev_uart_ok);
-    int all_ok = (pdev_ok && cdev_ok && bdev_ok && ramfs_ok && sock_ok);
+    int all_ok = (pdev_ok && cdev_ok && bdev_ok && ramfs_ok && sock_ok && poll_ok);
 
-    printk("<6>cherry_vfs: [vfs-verify] pdev=%s cdev=%s bdev=%s ramfs=%s sock=%s all=%s\n",
+    printk("<6>cherry_vfs: [vfs-verify] pdev=%s cdev=%s bdev=%s ramfs=%s sock=%s poll_select_epoll=%s all=%s\n",
            pdev_ok ? "pass" : "fail",
            cdev_ok ? "pass" : "fail",
            bdev_ok ? "pass" : "fail",
            ramfs_ok ? "pass" : "fail",
            sock_ok ? "pass" : "fail",
+           poll_ok ? "pass" : "fail",
            all_ok ? "pass" : "fail");
 
     return all_ok ? 0 : -1;

@@ -118,6 +118,7 @@ struct vfs_sock_ops {
     int     (*getsockopt)(void *sock, int level, int optname, void *optval, socklen_t *optlen);
     int     (*shutdown)(void *sock, int how);
     int     (*close)(void *sock);
+    int     (*poll)(void *sock, void *poll_table);
 };
 
 struct vfs_sockdev {
