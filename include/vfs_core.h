@@ -33,6 +33,10 @@ int vfs_register_fs(struct vfs_filesystem_type *fs);
 int vfs_unregister_fs(struct vfs_filesystem_type *fs);
 struct vfs_filesystem_type *vfs_find_fs(const char *name);
 
+/* Filesystem Formatting and Checking Utilities (Decoupled VFS Utilities) */
+int vfs_mkfs(const char *fstype, const char *source, const char *label);
+int vfs_fsck(const char *fstype, const char *source, int repair);
+
 /* Mount and Unmount Management */
 int vfs_mount(const char *source, const char *target, const char *fstype, unsigned long flags, const void *data);
 int vfs_umount(const char *target);
