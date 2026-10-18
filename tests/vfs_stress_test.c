@@ -304,11 +304,13 @@ static int stress_worker_thread(void *data)
 
 static bool test_concurrent_smp(void)
 {
-    struct semaphore done_sem;
+    static struct semaphore done_sem;
     sema_init(&done_sem, 0);
 
-    struct stress_worker_arg arg0 = { .id = 0, .iterations = 25, .done_sem = &done_sem, .ok = true };
-    struct stress_worker_arg arg1 = { .id = 1, .iterations = 25, .done_sem = &done_sem, .ok = true };
+    static struct stress_worker_arg arg0;
+    static struct stress_worker_arg arg1;
+    arg0.id = 0; arg0.iterations = 25; arg0.done_sem = &done_sem; arg0.ok = true;
+    arg1.id = 1; arg1.iterations = 25; arg1.done_sem = &done_sem; arg1.ok = true;
 
     struct task_struct *t0 = kthread_run(stress_worker_thread, &arg0, "vfs_w0");
     struct task_struct *t1 = kthread_run(stress_worker_thread, &arg1, "vfs_w1");
